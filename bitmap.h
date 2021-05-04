@@ -7,3 +7,5 @@ typedef struct block
 void initBitMap(int numBlocks,int pos);
 int * allocate(int BlocksNeeded);
 void deallocate(int BlocksNeeded[]);
+
+
