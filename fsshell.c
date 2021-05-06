@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "mfs.h"
+#include "fsBoot.h"
 
 /***************  START LINUX TESTING CODE FOR SHELL ***************/
 #define TEMP_LINUX 0  //MUST be ZERO for working with your file system
@@ -109,8 +110,8 @@
 #define CMDLS_ON	0
 #define CMDCP_ON	0
 #define CMDMV_ON	0
-#define CMDMD_ON	0
-#define CMDRM_ON	0
+#define CMDMD_ON	1
+#define CMDRM_ON	1
 #define CMDCP2L_ON	0
 #define CMDCP2FS_ON	0
 #define CMDCD_ON	0
@@ -377,16 +378,20 @@ int cmd_md (int argcnt, char *argvec[])
 ****************************************************/
 int cmd_rm (int argcnt, char *argvec[])
 	{
+		
 #if (CMDRM_ON == 1)
 	if (argcnt != 2)
 		{
 		printf ("Usage: rm path\n");
 		return -1;
 		}
+	
 		
 	char * path = argvec[1];	
 	
+		
 	//must determine if file or directory
+
 	if (fs_isDir (path))
 		{
 		return (fs_rmdir (path));
@@ -397,6 +402,7 @@ int cmd_rm (int argcnt, char *argvec[])
 		}	
 		
 	printf("The path %s is neither a file not a directory\n", path);
+	
 #endif
 	return -1;
 	}
@@ -696,7 +702,7 @@ int main (int argc, char * argv[])
 		
 	using_history();
 	stifle_history(200);	//max history entries
-	
+	int x = fsBoot(argc,argv);
 	while (1)
 		{
 		cmdin = readline("Prompt > ");
@@ -726,7 +732,7 @@ int main (int argc, char * argv[])
 				}
 			processcommand (cmd);
 			}
-				
+		//close partition?		
 		free (cmd);
 		cmd = NULL;		
 		} // end while

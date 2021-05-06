@@ -12,7 +12,7 @@ void initBitMap(int numBlocks,int pos){
         if(i <1){
             //bit_map->bytes[i]=0;//first 8 blocks are taken by vcb,fsm, and dir so first 8 bits are 0
             //due to intel architecture int bytes are stored backwards so to account maybe use the line below?
-            bit_map->bytes[i]=255;
+            bit_map->bytes[i]=1;
         }
         else{
         bit_map->bytes[i]=255;
@@ -29,64 +29,68 @@ void initBitMap(int numBlocks,int pos){
     free(bit_map);
 
     //test code
-    int test[2];
-    test[0]=0;
-    test[1]=7;
-    allocate(2) ;
-    //deallocate(test);
+    
 }
-//NOTE WE MAY HAVE ALLOCATED 5 BLOCKS FOR THE BIT MAP BUT THAT MAY HAVE BEEN TOO MUCH
 //NOTE currently allocate and dellocate either recieve or return arrays with the LBA's but should change to single int's
 //Also a lot of values are hard coded and need to be changed
 //allocate returns a pointer to an array that contains the LBA's of the blocks needed
-int * allocate(int BlocksNeeded){
-    int FreeBlocks[BlocksNeeded];
+int allocate(){
     unsigned char byte,Temp,CurrentByte;
-    int FBpos=0;
     int LBA=0;
-    int NumBitChanges=0;
     block_t *bit= (block_t *)calloc(1,512);
-
+    int STATE=0;
     printf("allocation startingd\n");//change this later
 
-for(int x = 1; x <=5; x++){
+for(int x = 1; x <=5; x++){//NOTE MAYBE FOR FIRST ARRAY ENTRY MAKE THAT THE SIZE
     LBAread(bit,1,x);//read through each block of the bit map
      for(int i = 0; i<512;i++){
-        printf("byte %d:%hhx\n",i,bit->bytes[i]);
+        //printf("byte %d:%hhx\n",i,bit->bytes[i]);
     }
     for(int y = 0; y < 512; y++){
         byte = 128;//byte holds the bit we are currently looking at so starting off in first position in binary this is 1000 0000
         CurrentByte = bit->bytes[y];// holds the current byte we are looking through
         for(int z = 0; z < 8; z++){// going through each bit
             Temp = CurrentByte & byte;// temp holds the result if the byte is free
-           
+            // COMMENTED PRINTF'S ARE FOR DEBUGGING
+            //printf("\n");
+            // printf("byte#:%d bit#:%d \n",y,z);
+            // printf("byte:%hhx temp:%hhx\n",byte,Temp);
+            // printf("bit changes:%d \n",NumBitChanges);
             if (byte == Temp){//this if statement checks if temp is holding a freebyte
-                FreeBlocks[FBpos]=LBA;//if so record the LBA
-                FBpos++;//update array pos
+                //printf("byte:%hhx ",byte);
                 byte = ~byte;//flip bits in order to make change to currentByte, check if this how it works
                 CurrentByte = CurrentByte & byte;
-                byte = ~byte;//flip bytes back in order to continue checking
-                NumBitChanges++;//updates the number of open blocks we've found and bits we've changed
-                if(NumBitChanges >= BlocksNeeded){// this if statement checks if we've found enough open blocks and if so will set for loop values so that we exit in this iteration
-                    z = 8;//these are hardcoded change later
-                }
+                //printf("byte:%hhx temp:%hhx\n",byte,Temp);
+               // printf("bit changes:%d \n",NumBitChanges);
+                z = 8;//these are hardcoded change later
+                STATE=1;//WE CHANGED THE BYTE TIME TO EXIT OIT OF LOOP
             }
             byte=byte>>1;// shift the 1 in bytes right 1 unit
             LBA++;//update logical block address
         }
+        
+        //printf("%d written to bit %hhx\n",y,bit->bytes[y]);
         bit->bytes[y] = CurrentByte;//sets the current byte at position Y to the result of currentByte
-        if(NumBitChanges >= BlocksNeeded){// this if statement checks if we've found enough open blocks and if so will set for loop values so that we exit in this iteration
+        //printf("%d written to bit %hhx\n",y,bit->bytes[y]);
+        if(STATE==1){// this if statement checks if we've found enough open blocks and if so will set for loop values so that we exit in this iteration
             y = 512;
         }
         
     }
+    //printf("Current byte:%hhx\n",CurrentByte);
     LBAwrite(bit,1,x);// writes the new reulting block of the bitmap
-    if(NumBitChanges >= BlocksNeeded){// this if statement checks if we've found enough open blocks and if so will set for loop values so that we exit in this iteration
+    //printf("written to disk\n");
+    for(int i = 0; i<512;i++){
+        //printf("byte %d:%hhx\n",i,bit->bytes[i]);
+    }
+    if(STATE==1){// this if statement checks if we've found enough open blocks and if so will set for loop values so that we exit in this iteration
         x = 6;
     }
 }
+
     printf("allocation finished\n");//change this later
-    return FreeBlocks;
+    printf("Avail Block:%d\n",LBA);
+    return LBA-1;//is the -1 correct?
 
 }
 /* this was the first attempt, had some logical errors
@@ -112,24 +116,25 @@ for(int x = 1; x <=5; x++){
         LBAwrite(bit,1,x);//RECENTLY ADDED
     }
 */
-void deallocate(int BlocksNeeded[]){//parameters is am array of SORTED ints of the LBA needed to open up 
-    int offset,CurrBlock,CurrByte;
+void deallocate(int BlockNeeded){//parameters is am array of SORTED ints of the LBA needed to open up 
+    int offset,CurrByte;
     unsigned char byte;
-    block_t *bit= (block_t *)calloc(1,512);
-    CurrBlock=0;     
+    block_t *bit= (block_t *)calloc(1,512);     
     CurrByte=0;
-    unsigned char ByteVal,offset;
+    unsigned char ByteVal;//,offset;
     offset = 128;                                                                                                                                                                   
-    int currentBlock=0;//hardcoded change later
-    for( int i =0; i < (sizeof BlocksNeeded / sizeof *BlocksNeeded); i++){
-        if((BlocksNeeded[i]/4096)>CurrBlock){
-            LBAread(bit,1,CurrBlock + 1);//increment by 1 since bitmap starts at LBA 1
-        }
-        CurrByte = (BlocksNeeded[i] % 4096) / 8;//finds the needed byte
-        offset = offset >> ( ( BlocksNeeded[i] % 4096  ) % 8);
-        ByteVal = bit->bytes[CurrByte];
-        bit->bytes[CurrByte]= ByteVal | offset;
-         
-    }
-                                   
+    int currentBlock=1+(BlockNeeded/4096);//hardcoded change later
+    printf("block loaded:%d\n",currentBlock);
+    LBAread(bit,1,currentBlock);//increment by 1 since bitmap starts at LBA 1
+ 
+
+    CurrByte = (BlockNeeded % 4096) / 8;//finds the needed byte
+    offset = offset >> ( ( BlockNeeded % 4096  ) % 8);
+    printf("byte :%d    offset:%d\n",CurrByte,offset);
+    ByteVal = bit->bytes[CurrByte];
+    printf("updated byte :%d\n",bit->bytes[CurrByte]);
+    bit->bytes[CurrByte]= ByteVal | offset;
+    printf("updated byte :%d\n",bit->bytes[CurrByte]);
+    LBAwrite(bit,1,currentBlock);
+    //USED TO TAKE ARRAY AND DELOCATE ALL BLOCKS BASED ON lba but now we just revieve a single lba so logic needs to change                             
 }
